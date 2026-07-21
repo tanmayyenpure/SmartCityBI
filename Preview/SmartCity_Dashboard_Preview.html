@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart City Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F2F2F7;
+    --card:#FFFFFF;
+    --border:#E5E5EA;
+    --text:#1C1C1E;
+    --text-secondary:#6E6E73;
+    --blue:#007AFF;
+    --green:#34C759;
+    --red:#FF3B30;
+    --orange:#FF9500;
+    --purple:#AF52DE;
+    --teal:#5AC8FA;
+    --yellow:#FFCC00;
+    --radius:14px;
+    --shadow:0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    background:rgba(255,255,255,0.85);
+    backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);
+    position:sticky;
+    top:0;
+    z-index:10;
+    padding:14px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--blue);}
+  .brand h1{font-size:17px;font-weight:600;margin:0;letter-spacing:-0.2px;}
+  .brand span{font-size:12px;color:var(--text-secondary);display:block;margin-top:1px;}
+  nav{display:flex;gap:4px;background:#EFEFF4;padding:4px;border-radius:10px;}
+  nav button{
+    border:none;background:transparent;padding:7px 14px;border-radius:8px;
+    font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;
+    font-family:inherit;transition:background .15s ease, color .15s ease;
+    white-space:nowrap;
+  }
+  nav button.active{background:#fff;color:var(--text);box-shadow:var(--shadow);}
+  main{max-width:1280px;margin:0 auto;padding:24px;}
+  .page{display:none;}
+  .page.active{display:block;}
+  .filters{
+    display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;
+  }
+  select{
+    font-family:inherit; font-size:13px; padding:8px 12px; border-radius:9px;
+    border:1px solid var(--border); background:#fff; color:var(--text); font-weight:500;
+  }
+  .kpi-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    gap:14px; margin-bottom:20px;
+  }
+  .kpi-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .kpi-card .label{font-size:12px; color:var(--text-secondary); font-weight:500; margin-bottom:6px;}
+  .kpi-card .value{font-size:26px; font-weight:700; letter-spacing:-0.5px;}
+  .kpi-card .sub{font-size:11px; color:var(--text-secondary); margin-top:4px;}
+  .kpi-card .accent{width:28px;height:3px;border-radius:2px;margin-top:10px;}
+  .chart-grid{
+    display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:16px;
+  }
+  .chart-grid.thirds{grid-template-columns:1fr 1fr;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; box-shadow:var(--shadow);
+  }
+  .card h3{margin:0 0 2px 0; font-size:14px; font-weight:600;}
+  .card .desc{font-size:12px; color:var(--text-secondary); margin-bottom:14px;}
+  .card canvas{max-height:260px;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{
+    text-align:left; padding:9px 10px; color:var(--text-secondary); font-weight:600;
+    border-bottom:1px solid var(--border); font-size:11.5px; text-transform:uppercase; letter-spacing:0.3px;
+  }
+  td{padding:9px 10px; border-bottom:1px solid #F0F0F3;}
+  tr:last-child td{border-bottom:none;}
+  .badge{padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block;}
+  .badge.low, .badge.resolved, .badge.good, .badge.closed{background:#E8F9EE; color:#1A8F3F;}
+  .badge.medium, .badge.satisfactory, .badge.pending{background:#FFF6E0; color:#B57500;}
+  .badge.high, .badge.moderate, .badge.investigation{background:#FFEDE0; color:#C25400;}
+  .badge.severe, .badge.poor{background:#FDEAEA; color:#D6362A;}
+  footer{text-align:center; padding:30px; font-size:12px; color:var(--text-secondary);}
+  @media (max-width:900px){
+    .chart-grid, .chart-grid.thirds{grid-template-columns:1fr;}
+    nav{overflow-x:auto;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>Smart City Analytics</h1>
+      <span>Pune City &middot; 15 PMC Ward Offices &middot; Jan &ndash; Jul 2026 (YTD)</span>
+    </div>
+  </div>
+  <nav id="tabnav">
+    <button data-page="executive" class="active">Executive</button>
+    <button data-page="traffic">Traffic</button>
+    <button data-page="crime">Crime</button>
+    <button data-page="pollution">Pollution</button>
+    <button data-page="water">Water</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- EXECUTIVE -->
+  <section class="page active" id="page-executive">
+    <div class="kpi-grid" id="exec-kpis"></div>
+    <div class="chart-grid">
+      <div class="card"><h3>Monthly Traffic Volume</h3><div class="desc">Total vehicles counted across all zones, by month</div><canvas id="execTrafficChart"></canvas></div>
+      <div class="card"><h3>Population by Region</h3><div class="desc">Share of city population</div><canvas id="execRegionChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><h3>Crime Cases Reported</h3><div class="desc">Monthly trend, all zones</div><canvas id="execCrimeChart"></canvas></div>
+      <div class="card"><h3>Average AQI Trend</h3><div class="desc">City-wide air quality index by month</div><canvas id="execAqiChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- TRAFFIC -->
+  <section class="page" id="page-traffic">
+    <div class="filters">
+      <select id="trafficZoneFilter"><option value="">All Zones</option></select>
+    </div>
+    <div class="kpi-grid" id="traffic-kpis"></div>
+    <div class="chart-grid">
+      <div class="card"><h3>Vehicle Volume Trend</h3><div class="desc">Monthly vehicle count, all zones</div><canvas id="trafficTrendChart"></canvas></div>
+      <div class="card"><h3>Congestion Level Split</h3><div class="desc">Share of readings by congestion level</div><canvas id="trafficCongestionChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><h3>Top Zones by Vehicle Count</h3><div class="desc">Highest traffic volume zones</div><canvas id="trafficZoneChart"></canvas></div>
+      <div class="card"><h3>Average Speed by Zone</h3><div class="desc">Km/h, top zones by volume</div><canvas id="trafficSpeedChart"></canvas></div>
+    </div>
+    <div class="card"><h3>Recent Traffic Records</h3><div class="desc">Sample of fact table rows</div>
+      <table id="trafficTable"><thead><tr><th>ID</th><th>Zone</th><th>Vehicles</th><th>Avg Speed</th><th>Congestion</th><th>Accidents</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- CRIME -->
+  <section class="page" id="page-crime">
+    <div class="filters">
+      <select id="crimeStatusFilter"><option value="">All Statuses</option></select>
+    </div>
+    <div class="kpi-grid" id="crime-kpis"></div>
+    <div class="chart-grid">
+      <div class="card"><h3>Cases Reported Trend</h3><div class="desc">Monthly total across all zones</div><canvas id="crimeTrendChart"></canvas></div>
+      <div class="card"><h3>Case Status Breakdown</h3><div class="desc">Distribution of case statuses</div><canvas id="crimeStatusChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><h3>Crimes by Type</h3><div class="desc">Total cases reported by category</div><canvas id="crimeTypeChart"></canvas></div>
+      <div class="card"><h3>Top Zones by Case Count</h3><div class="desc">Highest reported crime zones</div><canvas id="crimeZoneChart"></canvas></div>
+    </div>
+    <div class="card"><h3>Recent Crime Records</h3><div class="desc">Sample of fact table rows</div>
+      <table id="crimeTable"><thead><tr><th>ID</th><th>Zone</th><th>Type</th><th>Reported</th><th>Resolved</th><th>Status</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- POLLUTION -->
+  <section class="page" id="page-pollution">
+    <div class="filters">
+      <select id="pollutionCategoryFilter"><option value="">All AQI Categories</option></select>
+    </div>
+    <div class="kpi-grid" id="pollution-kpis"></div>
+    <div class="chart-grid">
+      <div class="card"><h3>Average AQI Trend</h3><div class="desc">Monthly average, all zones</div><canvas id="pollutionTrendChart"></canvas></div>
+      <div class="card"><h3>AQI Category Distribution</h3><div class="desc">Share of readings by category</div><canvas id="pollutionCategoryChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><h3>Average AQI by Zone</h3><div class="desc">Worst-affected zones</div><canvas id="pollutionZoneChart"></canvas></div>
+      <div class="card"><h3>PM2.5 vs PM10 by Zone</h3><div class="desc">Particulate matter comparison (&micro;g/m&sup3;)</div><canvas id="pollutionPmChart"></canvas></div>
+    </div>
+    <div class="card"><h3>Recent Air Quality Records</h3><div class="desc">Sample of fact table rows</div>
+      <table id="pollutionTable"><thead><tr><th>ID</th><th>Zone</th><th>AQI</th><th>PM2.5</th><th>PM10</th><th>Category</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- WATER -->
+  <section class="page" id="page-water">
+    <div class="filters">
+      <select id="waterZoneFilter"><option value="">All Zones</option></select>
+    </div>
+    <div class="kpi-grid" id="water-kpis"></div>
+    <div class="chart-grid">
+      <div class="card"><h3>Supply vs Consumption</h3><div class="desc">Monthly MLD (Million Litres per Day)</div><canvas id="waterSupplyChart"></canvas></div>
+      <div class="card"><h3>Consumption Trend</h3><div class="desc">Monthly total consumption</div><canvas id="waterTrendChart"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card"><h3>Top Zones by Consumption</h3><div class="desc">Highest water usage zones</div><canvas id="waterZoneChart"></canvas></div>
+      <div class="card"><h3>Leakage Share</h3><div class="desc">Leakage as % of total supply</div><canvas id="waterLeakageChart"></canvas></div>
+    </div>
+    <div class="card"><h3>Recent Water Records</h3><div class="desc">Sample of fact table rows</div>
+      <table id="waterTable"><thead><tr><th>ID</th><th>Zone</th><th>Supply (MLD)</th><th>Consumption (MLD)</th><th>Leakage (MLD)</th><th>Complaints</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+</main>
+
+<footer>Smart City Analytics Dashboard &middot; Pune City, all 15 PMC Ward Offices &middot; Static HTML preview built from the sample dataset, calibrated to Pune's real published AQI and water-supply figures (see Docs/SmartCity_PowerBI_Guide.md, Section 1) &middot; Build the live version in Power BI Desktop using the accompanying guide</footer>
+
+<script>
+const DATA = {"executive": {"kpis": {"totalVehicles": 2243585, "totalCrimes": 735, "resolutionRate": 49.4, "avgAQI": 113.9, "totalWaterSupply": 9316.6, "avgSpeed": 28.8, "totalAccidents": 79, "totalComplaints": 571}, "trafficTrend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [371621.0, 486603.0, 308314.0, 206727.0, 371741.0, 282343.0, 216236.0]}, "crimeTrend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [157.0, 105.0, 101.0, 136.0, 120.0, 60.0, 56.0]}, "aqiTrend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [163.16, 145.88, 125.62, 107.41, 91.82, 65.73, 51.83]}, "waterTrend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [1402.69, 824.77, 1198.61, 1050.73, 1857.29, 1362.51, 542.27]}, "regionSplit": {"labels": ["Central", "East", "North", "South", "West"], "values": [1074330.0, 288311.0, 345154.0, 702572.0, 485603.0]}}, "traffic": {"kpis": {"totalVehicles": 2243585, "avgSpeed": 28.8, "totalAccidents": 79, "severeCongestionPct": 9.0}, "trend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [371621.0, 486603.0, 308314.0, 206727.0, 371741.0, 282343.0, 216236.0]}, "byZone": {"labels": ["Nagar Road", "Dhankawadi-Katraj", "Sahakarnagar", "Yerwada", "Ghole Road", "Warje-Karvenagar", "Kondhwa-Wanawadi", "Bhawani Peth"], "values": [244890.0, 235414.0, 215881.0, 213029.0, 201176.0, 173007.0, 170177.0, 135718.0]}, "congestion": {"labels": ["Medium", "Low", "High", "Severe"], "values": [37, 31, 23, 9]}, "speedByZone": {"labels": ["Kothrud-Bawdhan", "Kasba-Vishrambagwada", "Aundh", "Bibwewadi", "Bhawani Peth", "Kondhwa-Wanawadi", "Dhole Patil Road", "Sahakarnagar"], "values": [36.15, 35.12, 35.08, 30.99, 30.81, 30.37, 28.9, 27.97]}, "table": [{"TrafficID": "TRF1000", "ZoneName": "Dhole Patil Road", "VehicleCount": 25082, "AvgSpeedKmph": 38.8, "CongestionLevel": "Medium", "AccidentCount": 2}, {"TrafficID": "TRF1001", "ZoneName": "Sahakarnagar", "VehicleCount": 34736, "AvgSpeedKmph": 35.8, "CongestionLevel": "Low", "AccidentCount": 1}, {"TrafficID": "TRF1002", "ZoneName": "Yerwada", "VehicleCount": 36673, "AvgSpeedKmph": 32.0, "CongestionLevel": "Low", "AccidentCount": 1}, {"TrafficID": "TRF1003", "ZoneName": "Hadapsar", "VehicleCount": 12737, "AvgSpeedKmph": 16.4, "CongestionLevel": "Medium", "AccidentCount": 1}, {"TrafficID": "TRF1004", "ZoneName": "Nagar Road", "VehicleCount": 22555, "AvgSpeedKmph": 18.5, "CongestionLevel": "Medium", "AccidentCount": 0}, {"TrafficID": "TRF1005", "ZoneName": "Yerwada", "VehicleCount": 21877, "AvgSpeedKmph": 39.2, "CongestionLevel": "Medium", "AccidentCount": 1}, {"TrafficID": "TRF1006", "ZoneName": "Bibwewadi", "VehicleCount": 8854, "AvgSpeedKmph": 31.0, "CongestionLevel": "High", "AccidentCount": 0}, {"TrafficID": "TRF1007", "ZoneName": "Warje-Karvenagar", "VehicleCount": 32548, "AvgSpeedKmph": 14.3, "CongestionLevel": "Severe", "AccidentCount": 2}, {"TrafficID": "TRF1008", "ZoneName": "Hadapsar", "VehicleCount": 13855, "AvgSpeedKmph": 16.8, "CongestionLevel": "Medium", "AccidentCount": 1}, {"TrafficID": "TRF1009", "ZoneName": "Hadapsar", "VehicleCount": 15392, "AvgSpeedKmph": 32.6, "CongestionLevel": "Medium", "AccidentCount": 0}, {"TrafficID": "TRF1010", "ZoneName": "Sahakarnagar", "VehicleCount": 30912, "AvgSpeedKmph": 14.1, "CongestionLevel": "High", "AccidentCount": 0}, {"TrafficID": "TRF1011", "ZoneName": "Sahakarnagar", "VehicleCount": 36050, "AvgSpeedKmph": 18.5, "CongestionLevel": "Low", "AccidentCount": 1}, {"TrafficID": "TRF1012", "ZoneName": "Dhankawadi-Katraj", "VehicleCount": 21949, "AvgSpeedKmph": 29.4, "CongestionLevel": "Medium", "AccidentCount": 2}, {"TrafficID": "TRF1013", "ZoneName": "Kondhwa-Wanawadi", "VehicleCount": 29633, "AvgSpeedKmph": 33.4, "CongestionLevel": "Low", "AccidentCount": 0}, {"TrafficID": "TRF1014", "ZoneName": "Kasba-Vishrambagwada", "VehicleCount": 29556, "AvgSpeedKmph": 32.3, "CongestionLevel": "Low", "AccidentCount": 0}]}, "crime": {"kpis": {"totalCrimes": 735, "totalResolved": 363, "resolutionRate": 49.4, "pendingCases": 372}, "trend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [157.0, 105.0, 101.0, 136.0, 120.0, 60.0, 56.0]}, "byType": {"labels": ["Theft", "Fraud", "Robbery", "Assault", "Cybercrime", "Burglary", "Vandalism"], "values": [132, 125, 121, 109, 103, 78, 67]}, "byZone": {"labels": ["Aundh", "Hadapsar", "Dhole Patil Road", "Bhawani Peth", "Kothrud-Bawdhan", "Kasba-Vishrambagwada", "Nagar Road", "Tilak Road"], "values": [90.0, 76.0, 68.0, 58.0, 58.0, 56.0, 55.0, 51.0]}, "byStatus": {"labels": ["Resolved", "Under Investigation", "Closed", "Pending"], "values": [53, 23, 18, 6]}, "table": [{"CrimeID": "CRM1000", "ZoneName": "Ghole Road", "CrimeType": "Vandalism", "CasesReported": 3, "CasesResolved": 3, "Status": "Resolved"}, {"CrimeID": "CRM1001", "ZoneName": "Yerwada", "CrimeType": "Theft", "CasesReported": 6, "CasesResolved": 6, "Status": "Resolved"}, {"CrimeID": "CRM1002", "ZoneName": "Aundh", "CrimeType": "Vandalism", "CasesReported": 6, "CasesResolved": 3, "Status": "Closed"}, {"CrimeID": "CRM1003", "ZoneName": "Sahakarnagar", "CrimeType": "Cybercrime", "CasesReported": 3, "CasesResolved": 3, "Status": "Under Investigation"}, {"CrimeID": "CRM1004", "ZoneName": "Nagar Road", "CrimeType": "Theft", "CasesReported": 7, "CasesResolved": 6, "Status": "Resolved"}, {"CrimeID": "CRM1005", "ZoneName": "Dhankawadi-Katraj", "CrimeType": "Burglary", "CasesReported": 3, "CasesResolved": 3, "Status": "Resolved"}, {"CrimeID": "CRM1006", "ZoneName": "Warje-Karvenagar", "CrimeType": "Robbery", "CasesReported": 8, "CasesResolved": 0, "Status": "Resolved"}, {"CrimeID": "CRM1007", "ZoneName": "Ghole Road", "CrimeType": "Robbery", "CasesReported": 10, "CasesResolved": 5, "Status": "Under Investigation"}, {"CrimeID": "CRM1008", "ZoneName": "Kondhwa-Wanawadi", "CrimeType": "Fraud", "CasesReported": 4, "CasesResolved": 4, "Status": "Resolved"}, {"CrimeID": "CRM1009", "ZoneName": "Bhawani Peth", "CrimeType": "Robbery", "CasesReported": 13, "CasesResolved": 2, "Status": "Resolved"}, {"CrimeID": "CRM1010", "ZoneName": "Warje-Karvenagar", "CrimeType": "Assault", "CasesReported": 1, "CasesResolved": 1, "Status": "Closed"}, {"CrimeID": "CRM1011", "ZoneName": "Bhawani Peth", "CrimeType": "Cybercrime", "CasesReported": 4, "CasesResolved": 4, "Status": "Resolved"}, {"CrimeID": "CRM1012", "ZoneName": "Sahakarnagar", "CrimeType": "Vandalism", "CasesReported": 7, "CasesResolved": 7, "Status": "Under Investigation"}, {"CrimeID": "CRM1013", "ZoneName": "Kasba-Vishrambagwada", "CrimeType": "Fraud", "CasesReported": 11, "CasesResolved": 4, "Status": "Resolved"}, {"CrimeID": "CRM1014", "ZoneName": "Warje-Karvenagar", "CrimeType": "Assault", "CasesReported": 4, "CasesResolved": 4, "Status": "Resolved"}]}, "pollution": {"kpis": {"avgAQI": 113.9, "avgPM25": 58.8, "avgPM10": 97.1, "poorSeverePct": 0.0}, "trend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [163.16, 145.88, 125.62, 107.41, 91.82, 65.73, 51.83]}, "byZone": {"labels": ["Kothrud-Bawdhan", "Nagar Road", "Dhankawadi-Katraj", "Bibwewadi", "Tilak Road", "Bhawani Peth", "Kasba-Vishrambagwada", "Dhole Patil Road"], "values": [157.5, 131.5, 123.25, 121.8, 120.57, 119.8, 113.71, 113.0]}, "byCategory": {"labels": ["Moderate", "Satisfactory", "Good"], "values": [64, 30, 6]}, "pm25vsPm10": {"labels": ["Kothrud-Bawdhan", "Nagar Road", "Bhawani Peth", "Dhankawadi-Katraj", "Bibwewadi", "Kasba-Vishrambagwada", "Tilak Road", "Warje-Karvenagar"], "pm25": [84.2, 68.55, 63.3, 62.12, 61.7, 60.87, 60.17, 60.13], "pm10": [132.3, 110.0, 96.3, 104.8, 103.5, 99.2, 106.0, 93.0]}, "table": [{"PollutionID": "AQI1000", "ZoneName": "Kasba-Vishrambagwada", "AQI": 167, "PM25": 80.9, "PM10": 149.3, "AQICategory": "Moderate"}, {"PollutionID": "AQI1001", "ZoneName": "Nagar Road", "AQI": 110, "PM25": 53.0, "PM10": 87.5, "AQICategory": "Moderate"}, {"PollutionID": "AQI1002", "ZoneName": "Yerwada", "AQI": 72, "PM25": 32.7, "PM10": 68.3, "AQICategory": "Satisfactory"}, {"PollutionID": "AQI1003", "ZoneName": "Sahakarnagar", "AQI": 65, "PM25": 35.6, "PM10": 61.4, "AQICategory": "Satisfactory"}, {"PollutionID": "AQI1004", "ZoneName": "Warje-Karvenagar", "AQI": 101, "PM25": 51.0, "PM10": 88.9, "AQICategory": "Moderate"}, {"PollutionID": "AQI1005", "ZoneName": "Tilak Road", "AQI": 69, "PM25": 40.0, "PM10": 54.5, "AQICategory": "Satisfactory"}, {"PollutionID": "AQI1006", "ZoneName": "Hadapsar", "AQI": 72, "PM25": 37.5, "PM10": 63.8, "AQICategory": "Satisfactory"}, {"PollutionID": "AQI1007", "ZoneName": "Dhankawadi-Katraj", "AQI": 51, "PM25": 30.4, "PM10": 39.0, "AQICategory": "Satisfactory"}, {"PollutionID": "AQI1008", "ZoneName": "Dhankawadi-Katraj", "AQI": 131, "PM25": 62.6, "PM10": 99.1, "AQICategory": "Moderate"}, {"PollutionID": "AQI1009", "ZoneName": "Hadapsar", "AQI": 48, "PM25": 27.9, "PM10": 38.5, "AQICategory": "Good"}, {"PollutionID": "AQI1010", "ZoneName": "Nagar Road", "AQI": 144, "PM25": 81.6, "PM10": 121.3, "AQICategory": "Moderate"}, {"PollutionID": "AQI1011", "ZoneName": "Dhole Patil Road", "AQI": 155, "PM25": 87.7, "PM10": 143.2, "AQICategory": "Moderate"}, {"PollutionID": "AQI1012", "ZoneName": "Kondhwa-Wanawadi", "AQI": 66, "PM25": 38.1, "PM10": 59.1, "AQICategory": "Satisfactory"}, {"PollutionID": "AQI1013", "ZoneName": "Aundh", "AQI": 130, "PM25": 73.3, "PM10": 116.8, "AQICategory": "Moderate"}, {"PollutionID": "AQI1014", "ZoneName": "Bhawani Peth", "AQI": 53, "PM25": 28.8, "PM10": 44.3, "AQICategory": "Satisfactory"}]}, "water": {"kpis": {"totalSupply": 9316.6, "totalConsumption": 8238.9, "totalLeakage": 1657.1, "leakagePct": 17.8, "totalComplaints": 571}, "trend": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "values": [1402.69, 824.77, 1198.61, 1050.73, 1857.29, 1362.51, 542.27]}, "byZone": {"labels": ["Dhankawadi-Katraj", "Yerwada", "Hadapsar", "Tilak Road", "Dhole Patil Road", "Bhawani Peth", "Kondhwa-Wanawadi", "Nagar Road"], "values": [891.98, 800.29, 780.0, 687.38, 682.2, 670.17, 641.18, 631.43]}, "supplyVsConsumption": {"labels": ["January", "February", "March", "April", "May", "June", "July"], "supply": [1556.65, 934.13, 1338.13, 1176.15, 2051.83, 1552.45, 707.23], "consumption": [1402.69, 824.77, 1198.61, 1050.73, 1857.29, 1362.51, 542.27]}, "table": [{"WaterID": "WTR1000", "ZoneName": "Tilak Road", "SupplyMLD": 73.28, "ConsumptionMLD": 114.51, "LeakageMLD": 12.54, "ComplaintsReceived": 5}, {"WaterID": "WTR1001", "ZoneName": "Bhawani Peth", "SupplyMLD": 103.33, "ConsumptionMLD": 93.64, "LeakageMLD": 14.57, "ComplaintsReceived": 1}, {"WaterID": "WTR1002", "ZoneName": "Warje-Karvenagar", "SupplyMLD": 82.65, "ConsumptionMLD": 70.6, "LeakageMLD": 9.94, "ComplaintsReceived": 0}, {"WaterID": "WTR1003", "ZoneName": "Hadapsar", "SupplyMLD": 118.4, "ConsumptionMLD": 107.15, "LeakageMLD": 21.02, "ComplaintsReceived": 9}, {"WaterID": "WTR1004", "ZoneName": "Bhawani Peth", "SupplyMLD": 104.05, "ConsumptionMLD": 66.8, "LeakageMLD": 20.5, "ComplaintsReceived": 4}, {"WaterID": "WTR1005", "ZoneName": "Kondhwa-Wanawadi", "SupplyMLD": 73.92, "ConsumptionMLD": 85.36, "LeakageMLD": 20.0, "ComplaintsReceived": 4}, {"WaterID": "WTR1006", "ZoneName": "Dhankawadi-Katraj", "SupplyMLD": 64.52, "ConsumptionMLD": 91.34, "LeakageMLD": 13.49, "ComplaintsReceived": 1}, {"WaterID": "WTR1007", "ZoneName": "Dhankawadi-Katraj", "SupplyMLD": 62.98, "ConsumptionMLD": 64.37, "LeakageMLD": 11.6, "ComplaintsReceived": 5}, {"WaterID": "WTR1008", "ZoneName": "Dhankawadi-Katraj", "SupplyMLD": 86.0, "ConsumptionMLD": 113.6, "LeakageMLD": 18.56, "ComplaintsReceived": 8}, {"WaterID": "WTR1009", "ZoneName": "Kondhwa-Wanawadi", "SupplyMLD": 78.61, "ConsumptionMLD": 98.63, "LeakageMLD": 16.44, "ComplaintsReceived": 1}, {"WaterID": "WTR1010", "ZoneName": "Hadapsar", "SupplyMLD": 105.23, "ConsumptionMLD": 86.26, "LeakageMLD": 11.67, "ComplaintsReceived": 9}, {"WaterID": "WTR1011", "ZoneName": "Nagar Road", "SupplyMLD": 94.95, "ConsumptionMLD": 61.74, "LeakageMLD": 19.29, "ComplaintsReceived": 1}, {"WaterID": "WTR1012", "ZoneName": "Bhawani Peth", "SupplyMLD": 78.62, "ConsumptionMLD": 53.5, "LeakageMLD": 23.87, "ComplaintsReceived": 2}, {"WaterID": "WTR1013", "ZoneName": "Tilak Road", "SupplyMLD": 70.45, "ConsumptionMLD": 70.8, "LeakageMLD": 20.21, "ComplaintsReceived": 6}, {"WaterID": "WTR1014", "ZoneName": "Kondhwa-Wanawadi", "SupplyMLD": 68.9, "ConsumptionMLD": 98.96, "LeakageMLD": 20.1, "ComplaintsReceived": 5}]}};
+
+Chart.defaults.font.family = "-apple-system, 'SF Pro Text', 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = "#6E6E73";
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.boxWidth = 8;
+
+const COLORS = {
+  blue:"#007AFF", green:"#34C759", red:"#FF3B30", orange:"#FF9500",
+  purple:"#AF52DE", teal:"#5AC8FA", yellow:"#FFCC00", gray:"#8E8E93"
+};
+const PALETTE = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.purple, COLORS.teal, COLORS.red, COLORS.yellow, COLORS.gray];
+
+function baseOpts(extra){
+  return Object.assign({
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{display:false}, ticks:{font:{size:10.5}}},
+      y:{grid:{color:"#F0F0F3"}, ticks:{font:{size:10.5}}, beginAtZero:true}
+    }
+  }, extra||{});
+}
+
+function lineChart(ctx, labels, values, color, label){
+  return new Chart(ctx, {
+    type:"line",
+    data:{labels, datasets:[{label, data:values, borderColor:color, backgroundColor:color+"22",
+      fill:true, tension:0.35, pointRadius:0, borderWidth:2.5}]},
+    options: baseOpts()
+  });
+}
+function barChart(ctx, labels, values, color, horizontal){
+  return new Chart(ctx, {
+    type:"bar",
+    data:{labels, datasets:[{data:values, backgroundColor:color, borderRadius:6, maxBarThickness:28}]},
+    options: baseOpts(horizontal ? {indexAxis:"y"} : {})
+  });
+}
+function doughnutChart(ctx, labels, values){
+  return new Chart(ctx, {
+    type:"doughnut",
+    data:{labels, datasets:[{data:values, backgroundColor:PALETTE, borderWidth:2, borderColor:"#fff"}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:"62%",
+      plugins:{legend:{position:"bottom", labels:{padding:12, font:{size:10.5}}}}}
+  });
+}
+function multiLineChart(ctx, labels, series){
+  return new Chart(ctx, {
+    type:"line",
+    data:{labels, datasets: series.map((s,i)=>({label:s.label, data:s.data, borderColor:PALETTE[i],
+      backgroundColor:PALETTE[i]+"15", fill:false, tension:0.35, pointRadius:0, borderWidth:2.5}))},
+    options: baseOpts({plugins:{legend:{display:true, position:"bottom", labels:{padding:12,font:{size:10.5}}}}})
+  });
+}
+
+function kpiCard(label, value, sub, color){
+  return `<div class="kpi-card"><div class="label">${label}</div><div class="value">${value}</div>
+    <div class="sub">${sub||""}</div><div class="accent" style="background:${color}"></div></div>`;
+}
+function fmt(n){ return Number(n).toLocaleString("en-IN"); }
+
+function badgeClass(v){ return String(v).toLowerCase().replace(/\s+/g,"").replace("under investigation","investigation"); }
+
+// ---------------- EXECUTIVE ----------------
+function renderExecutive(){
+  const d = DATA.executive;
+  document.getElementById("exec-kpis").innerHTML = [
+    kpiCard("Total Vehicles Tracked", fmt(d.kpis.totalVehicles), "Across all zones, FY 2024", COLORS.blue),
+    kpiCard("Total Crimes Reported", fmt(d.kpis.totalCrimes), `${d.kpis.resolutionRate}% resolution rate`, COLORS.red),
+    kpiCard("Average AQI", d.kpis.avgAQI, "City-wide, all zones", COLORS.orange),
+    kpiCard("Water Supplied", fmt(d.kpis.totalWaterSupply)+" MLD", "Total across all zones", COLORS.teal),
+    kpiCard("Average Traffic Speed", d.kpis.avgSpeed+" km/h", "City-wide average", COLORS.green),
+    kpiCard("Total Accidents", fmt(d.kpis.totalAccidents), "Reported incidents", COLORS.purple),
+  ].join("");
+  lineChart(document.getElementById("execTrafficChart"), d.trafficTrend.labels, d.trafficTrend.values, COLORS.blue, "Vehicles");
+  doughnutChart(document.getElementById("execRegionChart"), d.regionSplit.labels, d.regionSplit.values);
+  lineChart(document.getElementById("execCrimeChart"), d.crimeTrend.labels, d.crimeTrend.values, COLORS.red, "Cases");
+  lineChart(document.getElementById("execAqiChart"), d.aqiTrend.labels, d.aqiTrend.values, COLORS.orange, "AQI");
+}
+
+// ---------------- TRAFFIC ----------------
+let trafficCharts = [];
+function renderTraffic(){
+  const d = DATA.traffic;
+  document.getElementById("traffic-kpis").innerHTML = [
+    kpiCard("Total Vehicles", fmt(d.kpis.totalVehicles), "All zones combined", COLORS.blue),
+    kpiCard("Average Speed", d.kpis.avgSpeed+" km/h", "Across all readings", COLORS.green),
+    kpiCard("Total Accidents", fmt(d.kpis.totalAccidents), "Reported incidents", COLORS.red),
+    kpiCard("Severe Congestion", d.kpis.severeCongestionPct+"%", "Of all readings", COLORS.orange),
+  ].join("");
+  trafficCharts.forEach(c=>c.destroy()); trafficCharts=[];
+  trafficCharts.push(lineChart(document.getElementById("trafficTrendChart"), d.trend.labels, d.trend.values, COLORS.blue, "Vehicles"));
+  trafficCharts.push(doughnutChart(document.getElementById("trafficCongestionChart"), d.congestion.labels, d.congestion.values));
+  trafficCharts.push(barChart(document.getElementById("trafficZoneChart"), d.byZone.labels, d.byZone.values, COLORS.blue, true));
+  trafficCharts.push(barChart(document.getElementById("trafficSpeedChart"), d.speedByZone.labels, d.speedByZone.values, COLORS.green, true));
+
+  const zoneSel = document.getElementById("trafficZoneFilter");
+  if(!zoneSel.dataset.filled){
+    [...new Set(d.table.map(r=>r.ZoneName))].sort().forEach(z=>{
+      zoneSel.innerHTML += `<option value="${z}">${z}</option>`;
+    });
+    zoneSel.dataset.filled = "1";
+    zoneSel.addEventListener("change", renderTrafficTable);
+  }
+  renderTrafficTable();
+}
+function renderTrafficTable(){
+  const d = DATA.traffic;
+  const filterZone = document.getElementById("trafficZoneFilter").value;
+  const rows = d.table.filter(r => !filterZone || r.ZoneName===filterZone);
+  document.querySelector("#trafficTable tbody").innerHTML = rows.map(r=>`
+    <tr><td>${r.TrafficID}</td><td>${r.ZoneName}</td><td>${fmt(r.VehicleCount)}</td><td>${r.AvgSpeedKmph}</td>
+    <td><span class="badge ${badgeClass(r.CongestionLevel)}">${r.CongestionLevel}</span></td><td>${r.AccidentCount}</td></tr>`).join("")
+    || `<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px;">No records for this filter</td></tr>`;
+}
+
+// ---------------- CRIME ----------------
+let crimeCharts = [];
+function renderCrime(){
+  const d = DATA.crime;
+  document.getElementById("crime-kpis").innerHTML = [
+    kpiCard("Total Crimes Reported", fmt(d.kpis.totalCrimes), "All zones combined", COLORS.red),
+    kpiCard("Total Resolved", fmt(d.kpis.totalResolved), "Cases closed / resolved", COLORS.green),
+    kpiCard("Resolution Rate", d.kpis.resolutionRate+"%", "Resolved &divide; reported", COLORS.blue),
+    kpiCard("Pending Cases", fmt(d.kpis.pendingCases), "Awaiting resolution", COLORS.orange),
+  ].join("");
+  crimeCharts.forEach(c=>c.destroy()); crimeCharts=[];
+  crimeCharts.push(lineChart(document.getElementById("crimeTrendChart"), d.trend.labels, d.trend.values, COLORS.red, "Cases"));
+  crimeCharts.push(doughnutChart(document.getElementById("crimeStatusChart"), d.byStatus.labels, d.byStatus.values));
+  crimeCharts.push(barChart(document.getElementById("crimeTypeChart"), d.byType.labels, d.byType.values, COLORS.purple, true));
+  crimeCharts.push(barChart(document.getElementById("crimeZoneChart"), d.byZone.labels, d.byZone.values, COLORS.red, true));
+
+  const statusSel = document.getElementById("crimeStatusFilter");
+  if(!statusSel.dataset.filled){
+    [...new Set(d.table.map(r=>r.Status))].sort().forEach(s=>{
+      statusSel.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+    statusSel.dataset.filled = "1";
+    statusSel.addEventListener("change", renderCrimeTable);
+  }
+  renderCrimeTable();
+}
+function renderCrimeTable(){
+  const d = DATA.crime;
+  const filterStatus = document.getElementById("crimeStatusFilter").value;
+  const rows = d.table.filter(r => !filterStatus || r.Status===filterStatus);
+  document.querySelector("#crimeTable tbody").innerHTML = rows.map(r=>`
+    <tr><td>${r.CrimeID}</td><td>${r.ZoneName}</td><td>${r.CrimeType}</td><td>${r.CasesReported}</td><td>${r.CasesResolved}</td>
+    <td><span class="badge ${badgeClass(r.Status)}">${r.Status}</span></td></tr>`).join("")
+    || `<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px;">No records for this filter</td></tr>`;
+}
+
+// ---------------- POLLUTION ----------------
+let pollutionCharts = [];
+function renderPollution(){
+  const d = DATA.pollution;
+  document.getElementById("pollution-kpis").innerHTML = [
+    kpiCard("Average AQI", d.kpis.avgAQI, "City-wide, all zones", COLORS.orange),
+    kpiCard("Average PM2.5", d.kpis.avgPM25+" &micro;g/m&sup3;", "Fine particulate matter", COLORS.red),
+    kpiCard("Average PM10", d.kpis.avgPM10+" &micro;g/m&sup3;", "Coarse particulate matter", COLORS.purple),
+    kpiCard("Poor / Severe Readings", d.kpis.poorSeverePct+"%", "Of all recorded readings", COLORS.red),
+  ].join("");
+  pollutionCharts.forEach(c=>c.destroy()); pollutionCharts=[];
+  pollutionCharts.push(lineChart(document.getElementById("pollutionTrendChart"), d.trend.labels, d.trend.values, COLORS.orange, "AQI"));
+  pollutionCharts.push(doughnutChart(document.getElementById("pollutionCategoryChart"), d.byCategory.labels, d.byCategory.values));
+  pollutionCharts.push(barChart(document.getElementById("pollutionZoneChart"), d.byZone.labels, d.byZone.values, COLORS.orange, true));
+  pollutionCharts.push(multiLineChart(document.getElementById("pollutionPmChart"), d.pm25vsPm10.labels,
+    [{label:"PM2.5", data:d.pm25vsPm10.pm25},{label:"PM10", data:d.pm25vsPm10.pm10}]));
+
+  const catSel = document.getElementById("pollutionCategoryFilter");
+  if(!catSel.dataset.filled){
+    [...new Set(d.table.map(r=>r.AQICategory))].sort().forEach(c=>{
+      catSel.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+    catSel.dataset.filled = "1";
+    catSel.addEventListener("change", renderPollutionTable);
+  }
+  renderPollutionTable();
+}
+function renderPollutionTable(){
+  const d = DATA.pollution;
+  const filterCat = document.getElementById("pollutionCategoryFilter").value;
+  const rows = d.table.filter(r => !filterCat || r.AQICategory===filterCat);
+  document.querySelector("#pollutionTable tbody").innerHTML = rows.map(r=>`
+    <tr><td>${r.PollutionID}</td><td>${r.ZoneName}</td><td>${r.AQI}</td><td>${r.PM25}</td><td>${r.PM10}</td>
+    <td><span class="badge ${badgeClass(r.AQICategory)}">${r.AQICategory}</span></td></tr>`).join("")
+    || `<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px;">No records for this filter</td></tr>`;
+}
+
+// ---------------- WATER ----------------
+let waterCharts = [];
+function renderWater(){
+  const d = DATA.water;
+  document.getElementById("water-kpis").innerHTML = [
+    kpiCard("Total Supply", fmt(d.kpis.totalSupply)+" MLD", "All zones combined", COLORS.teal),
+    kpiCard("Total Consumption", fmt(d.kpis.totalConsumption)+" MLD", "All zones combined", COLORS.blue),
+    kpiCard("Total Leakage", fmt(d.kpis.totalLeakage)+" MLD", d.kpis.leakagePct+"% of supply", COLORS.red),
+    kpiCard("Complaints Received", fmt(d.kpis.totalComplaints), "All zones combined", COLORS.orange),
+  ].join("");
+  waterCharts.forEach(c=>c.destroy()); waterCharts=[];
+  waterCharts.push(multiLineChart(document.getElementById("waterSupplyChart"), d.supplyVsConsumption.labels,
+    [{label:"Supply", data:d.supplyVsConsumption.supply},{label:"Consumption", data:d.supplyVsConsumption.consumption}]));
+  waterCharts.push(lineChart(document.getElementById("waterTrendChart"), d.trend.labels, d.trend.values, COLORS.blue, "Consumption"));
+  waterCharts.push(barChart(document.getElementById("waterZoneChart"), d.byZone.labels, d.byZone.values, COLORS.teal, true));
+  waterCharts.push(doughnutChart(document.getElementById("waterLeakageChart"),
+    ["Consumed / Delivered","Leakage"], [Math.round((d.kpis.totalSupply-d.kpis.totalLeakage)*10)/10, d.kpis.totalLeakage]));
+
+  const zoneSel = document.getElementById("waterZoneFilter");
+  if(!zoneSel.dataset.filled){
+    [...new Set(d.table.map(r=>r.ZoneName))].sort().forEach(z=>{
+      zoneSel.innerHTML += `<option value="${z}">${z}</option>`;
+    });
+    zoneSel.dataset.filled = "1";
+    zoneSel.addEventListener("change", renderWaterTable);
+  }
+  renderWaterTable();
+}
+function renderWaterTable(){
+  const d = DATA.water;
+  const filterZone = document.getElementById("waterZoneFilter").value;
+  const rows = d.table.filter(r => !filterZone || r.ZoneName===filterZone);
+  document.querySelector("#waterTable tbody").innerHTML = rows.map(r=>`
+    <tr><td>${r.WaterID}</td><td>${r.ZoneName}</td><td>${r.SupplyMLD}</td><td>${r.ConsumptionMLD}</td><td>${r.LeakageMLD}</td><td>${r.ComplaintsReceived}</td></tr>`).join("")
+    || `<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px;">No records for this filter</td></tr>`;
+}
+
+// ---------------- NAVIGATION ----------------
+const renderers = { executive: renderExecutive, traffic: renderTraffic, crime: renderCrime, pollution: renderPollution, water: renderWater };
+const rendered = {};
+document.querySelectorAll("#tabnav button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#tabnav button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    const page = btn.dataset.page;
+    document.getElementById("page-"+page).classList.add("active");
+    if(!rendered[page]){ renderers[page](); rendered[page]=true; }
+  });
+});
+
+renderExecutive();
+rendered.executive = true;
+</script>
+</body>
+</html>
